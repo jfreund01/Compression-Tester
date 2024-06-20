@@ -1,7 +1,8 @@
 import heapq as hq
 import pickle
 import os
-
+import time
+from utils import detailed_report
 class huffman_node:
     def __init__(self, char, freq, left=None, right=None):
         self.left = left
@@ -41,7 +42,6 @@ def print_huffman_tree(node, indent="", is_left=True):
         print_huffman_tree(node.left, indent, True)
         print_huffman_tree(node.right, indent, False)
 
-
 def create_huffman_tree(huffman_table):
     heap = [huffman_node(char, freq) for char, freq in huffman_table]
     hq.heapify(heap)
@@ -71,7 +71,6 @@ def create_encoding_table(node, bit='', encoding_table={}):
     if (node.right is not None):
         create_encoding_table(node.right, bit = f'{bit}1', encoding_table=encoding_table)
     return encoding_table
-        
 
 def resolve_same_frequency(incomplete_table):
     current_freq = 0
@@ -112,7 +111,9 @@ def deserialize_huffman_tree(data, index=0):
     return huffman_node(char=None, freq=0, left=left, right=right), next_index
 
 
-def encode(input_file, output_file):
+def encode(input_file):
+    output_file = f"{os.path.splitext(input_file)[0]}.bin"
+    start_time = time.time()
     try:
         # Count character frequencies
         d = dict()
@@ -154,12 +155,18 @@ def encode(input_file, output_file):
             file.write(byte_array)  # Write the encoded data
 
         print(f"Encoding complete. Encoded file saved as '{output_file}'.")
+        total_time = time.time() - start_time
+        return total_time
+
 
     except Exception as e:
         print(f"An error occurred during encoding: {e}")
+        return 0
 
 
-def decode(encoded_file, output_file):
+def decode(encoded_file):
+    output_file = f"{os.path.splitext(encoded_file)[0]}.decoded"
+    start_time = time.time()
     try:
         # Read the serialized tree and encoded data from the file
         with open(encoded_file, 'rb') as file:
@@ -192,21 +199,17 @@ def decode(encoded_file, output_file):
             file.write(decoded_output)
 
         print(f"Decoding complete. Decoded file saved as '{output_file}'.")
+        total_time = time.time() - start_time
+        return total_time
 
     except Exception as e:
         print(f"An error occurred during decoding: {e}")
+        return 0
 
-def detailed_report(input_file, compressed_file):
-    input_size = os.path.getsize(input_file)
-    compressed_size = os.path.getsize(compressed_file)
-    compression_ratio = float(input_size/compressed_size)
-    a = f"""
-----------------------------------------
-Huffman Encoding Statistics
 
-Input File Size:    {input_size/1000:.1f} KB
-Output File Size:   {compressed_size/1000:.1f} KB
-Compression Ratio:  {compression_ratio:.2f}
-----------------------------------------
-    """
-    print(a)
+def huffman_encode(input_file):
+    input_file_base = os.path.splitext(input_file)[0]
+    compression_time = encode(f"{input_file_base}.txt")
+    decompression_time = decode(f"{input_file_base}.bin")
+    detailed_report("Huffman Encode", input_file_base, input_file_base, compression_time, decompression_time)
+
