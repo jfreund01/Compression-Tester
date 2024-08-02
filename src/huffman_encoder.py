@@ -112,7 +112,7 @@ def deserialize_huffman_tree(data, index=0):
 
 
 def encode(input_file):
-    output_file = f"{os.path.splitext(input_file)[0]}.bin"
+    output_file = "huffman_encoded.bin"
     start_time = time.time()
     try:
         # Count character frequencies
@@ -195,10 +195,10 @@ def decode(encoded_file):
                 decoded_output += node.char
                 node = tree
 
-        with open(output_file, 'w') as file:
-            file.write(decoded_output)
+        # with open(output_file, 'w') as file:
+        #     file.write(decoded_output)
 
-        print(f"Decoding complete. Decoded file saved as '{output_file}'.")
+        # print(f"Decoding complete. Decoded file saved as '{output_file}'.")
         total_time = time.time() - start_time
         return total_time
 
@@ -210,6 +210,6 @@ def decode(encoded_file):
 def huffman_encode(input_file):
     input_file_base = os.path.splitext(input_file)[0]
     compression_time = encode(f"{input_file_base}.txt")
-    decompression_time = decode(f"{input_file_base}.bin")
-    detailed_report("Huffman Encode", input_file_base, input_file_base, compression_time, decompression_time)
+    # decompression_time = decode(f"{input_file_base}.bin")
+    detailed_report("Huffman Encode", input_file_base, input_file_base, compression_time, 0)
 
