@@ -1,8 +1,8 @@
 import os as time
 from utils import detailed_report
 
-SEARCH_BUFFER_SIZE = 8  
-LOOK_AHEAD_BUFFER_SIZE = 4
+SEARCH_BUFFER_SIZE = 8000  
+LOOK_AHEAD_BUFFER_SIZE = 2000
 
 def create_input_string(file_path: str) -> str:
     with open(file_path, "r") as file:
@@ -68,4 +68,6 @@ def lz77_encode(input_file: str) -> str:
             look_ahead_buffer[:] = input_string[:LOOK_AHEAD_BUFFER_SIZE]
 
     print(str(output_string))
+    with open("../text_encoded_files/lz77_encoded.txt", "w") as file:
+        file.write(str(output_string).replace(' ',''))
     return(str(output_string))
