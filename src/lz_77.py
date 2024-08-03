@@ -1,11 +1,140 @@
-import os as time
+import os as os
 from utils import detailed_report
-import math
 import struct
 from collections import deque
+from functools import wraps
+from time import time
 
 SEARCH_BUFFER_SIZE = 4096 
 LOOK_AHEAD_BUFFER_SIZE = 20
+
+def timing(f):
+    @wraps(f)
+    def wrap(*args, **kw):
+        ts = time()
+        f(*args, **kw)
+        te = time()
+        execution_time = te - ts
+        return execution_time
+    return wrap
+
+class LZ77Compressor:
+    SPECIAL_BYTE = 0
+
+    def __init__(self, search_buffer_size, lookup_buffer_size):
+        self.search_buffer_size = search_buffer_size
+        self.lookup_buffer_size = lookup_buffer_size
+        self.dictionary = {}
+    
+    def hash_substring(self, substring: str) -> int:
+        return hash(substring)
+    
+    @timing
+    def compress(self, input_file):
+        # output_string = []
+        # temp_dict = {}
+        byte_data = bytearray()
+        i = 0
+        with open (input_file, "r") as file:
+            data = file.read()
+        l = len(data)
+        while i < l:
+            # print(i / l * 100)
+            longest_location = 0
+            longest_length = 0
+            current_char = data[i]
+            current_char_hash = self.hash_substring(data[i])
+            # If the hash is found in the dictionary, we need to deal with out of bounds before
+            if self.dictionary.get(current_char_hash):
+                for pos in self.dictionary[current_char_hash]:
+                    # make sure to remove locations that are out of bounds
+                    if pos < i - self.search_buffer_size:
+                        self.dictionary[current_char_hash].remove(pos)
+                        # temp_dict[current_char].remove(pos)
+                        if self.dictionary[current_char_hash] == []:
+                            del self.dictionary[current_char_hash]
+                            # del temp_dict[current_char]
+                    # if the location is within bounds, we need to find the longest prefix
+                    else:
+                        current_length = 0
+                        j = pos
+                        temp_i = i
+                        while temp_i < l and current_length < self.lookup_buffer_size and data[temp_i] == data[j]:
+                            temp_i += 1
+                            j += 1
+                            current_length += 1
+                            if current_length >= longest_length:
+                                longest_length = current_length
+                                longest_location = temp_i - j
+                i += longest_length
+                if i == l:
+                    byte_data.extend(pack_tuple((longest_location, longest_length, 0)))
+                    # output_string.append((longest_location, longest_length, ''))
+                else:
+                    byte_data.extend(pack_tuple((longest_location, longest_length, ord(data[i]))))
+                    # output_string.append((longest_location, longest_length, data[i]))
+                    i += 1
+                # Add the characters in the substring to the dictionary
+                for k in range((i - longest_length - 1), i):
+                    current_char = data[k]
+                    current_char_hash = self.hash_substring(current_char)
+                    if self.dictionary.get(current_char_hash):
+                        self.dictionary[current_char_hash].append(k)
+                        # temp_dict[current_char].append(k)
+                    else:
+                        self.dictionary[current_char_hash] = [k]
+                        # temp_dict[current_char] = [k]
+            # If we dont find the hash in the dictionary, we need to add it and return the 0,0,char tuple
+            else:
+                byte_data.extend(pack_tuple((0, 0, ord(current_char[0]))))
+                # output_string.append((0, 0, current_char[0]))
+                self.dictionary[current_char_hash] = [i]
+                # temp_dict[current_char] = [i]
+                i += 1
+            # print(# output_string)
+        with open("/Users/jacobfreund/Compression-Tester/text_encoded_files/lz77_encoded.bin", "wb") as file:
+            file.write(byte_data)
+
+    @timing
+    def decode(self, compressed_file):
+
+        decompressed_data = []
+
+        with open("/Users/jacobfreund/Compression-Tester/text_encoded_files/lz77_encoded.bin", 'rb') as f:
+            while True:
+                chunk = f.read(struct.calcsize('HBB'))
+                if not chunk:
+                    break
+                distance, length, next_char = struct.unpack('HBB', chunk)
+                # print (distance, length, chr(next_char))
+                if next_char == self.SPECIAL_BYTE:
+                    # Special case: entire remaining string is a match
+                    match_start = len(decompressed_data) - distance
+                    match_string = decompressed_data[match_start:match_start + length]
+                    decompressed_data.extend(match_string)
+                elif distance > 0 and length > 0:
+                    # Match found
+                    match_start = len(decompressed_data) - distance
+                    for i in range(length):
+                        decompressed_data.append(decompressed_data[match_start + i])
+                    if next_char != 0:
+                        decompressed_data.append(chr(next_char))
+                else:
+                    # Literal character
+                    decompressed_data.append(chr(next_char))
+        decompressed_string = ''.join(decompressed_data)
+
+        with open("/Users/jacobfreund/Compression-Tester/text_encoded_files/lz77_decoded.txt", "w") as file:
+            file.write(str(decompressed_string))
+
+    def test(self, input_file):
+        comp_time = self.compress(input_file)
+        decomp_time = self.decode("/Users/jacobfreund/Compression-Tester/text_encoded_files/lz77_encoded.bin")
+        detailed_report("LZ77", input_file, "/Users/jacobfreund/Compression-Tester/text_encoded_files/lz77_encoded.bin", comp_time, decomp_time)
+        # delete file after testing
+        os.remove("../text_encoded_files/lz77_encoded.bin")
+        os.remove("../text_encoded_files/lz77_decoded.txt")
+
 
 def create_input_string(file_path: str) -> str:
     with open(file_path, "r") as file:
@@ -73,13 +202,14 @@ def find_longest_prefix_KMP(search_buffer: list, look_ahead_buffer: list) -> tup
                 i += 1
     return (len(search_buffer) - longest_location, longest_length, look_ahead_buffer[j + 1])
 
-# LZ77 encoding algorithm using HashLookup
+# LZ77 encoding algorithm using dictionary
+
 
 # LZ77 encoding algorithm
 def lz77_encode(input_file: str) -> str:
     input_string = create_input_string(input_file)
     full_len = len(input_string)
-    output_string = []
+    # output_string = []
     output_buffer = bytearray()
     search_buffer = deque(maxlen=SEARCH_BUFFER_SIZE)
     look_ahead_buffer = input_string[:LOOK_AHEAD_BUFFER_SIZE]
@@ -89,7 +219,7 @@ def lz77_encode(input_file: str) -> str:
         print(((full_len - input_pos) / full_len) * 100)
         if look_ahead_buffer[0] not in search_buffer:
             byte_string = pack_tuple((0, 0, ord(look_ahead_buffer[0])))
-            output_string.append((0, 0, look_ahead_buffer[0]))
+            # # output_string.append((0, 0, look_ahead_buffer[0]))
             output_buffer.extend(byte_string)
             search_buffer.append(look_ahead_buffer[0])
             input_pos += 1
@@ -97,7 +227,7 @@ def lz77_encode(input_file: str) -> str:
         else:
             prefix_location, prefix_length, next_char = find_longest_prefix_KMP(search_buffer, look_ahead_buffer)
             byte_string = pack_tuple((prefix_location, prefix_length, ord(next_char)))
-            output_string.append((prefix_location, prefix_length, next_char))
+            # # output_string.append((prefix_location, prefix_length, next_char))
             output_buffer.extend(byte_string)
             move_len = prefix_length + 1
             search_buffer.extend(look_ahead_buffer[:move_len])
