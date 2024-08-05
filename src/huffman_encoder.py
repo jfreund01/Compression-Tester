@@ -2,7 +2,9 @@ import heapq as hq
 import pickle
 import os
 import time
+import struct
 from utils import detailed_report
+
 class huffman_node:
     def __init__(self, char, freq, left=None, right=None):
         self.left = left
@@ -94,12 +96,15 @@ def resolve_same_frequency(incomplete_table):
     resolved_table.extend(current_pairs) # sorts in place
     return resolved_table
 
-def serialize_huffman_tree(node):
-    if node is None:
-        return ''
-    if node.char is not None:
-        return f'1{node.char}'
-    return f'0{serialize_huffman_tree(node.left)}{serialize_huffman_tree(node.right)}'
+def serialize_huffman_tree(pairs):
+    serialized_end = b'\x00\x00\x00\x00'
+    serialzed_tree = bytearray()
+    for pair in pairs:
+        serialzed_tree.extend(struct.pack('<II', ord(pair[0]), pair[1]))
+    serialzed_tree.extend(serialized_end)
+    return serialzed_tree
+
+    
 
 def deserialize_huffman_tree(data, index=0):
     if index >= len(data):
@@ -111,105 +116,105 @@ def deserialize_huffman_tree(data, index=0):
     return huffman_node(char=None, freq=0, left=left, right=right), next_index
 
 
-def encode(input_file):
-    output_file = f"{os.path.splitext(input_file)[0]}.bin"
+def encode(folder_path, input_file):
     start_time = time.time()
-    try:
-        # Count character frequencies
-        d = dict()
-        with open(input_file, 'r') as file:
-            for line in file:
-                for character in line:
-                    if character not in d:
-                        d[character] = 1
-                    else:
-                        d[character] += 1
+    # Count character frequencies
+    d = dict()
+    with open(f"{folder_path}{input_file}", 'r') as file:
+        for line in file:
+            for character in line:
+                if character not in d:
+                    d[character] = 1
+                else:
+                    d[character] += 1
+    # Sort by frequency
+    pairs = list(d.items())
+    pairs.sort(key=lambda x: x[1]) 
 
-        pairs = list(d.items())
-        pairs.sort(key=lambda x: x[1])  # Sort by frequency
-        tree = create_huffman_tree(pairs)
-        encoding_table = create_encoding_table(tree)
+    # Create tree and encoding table
+    tree = create_huffman_tree(pairs)
+    encoding_table = create_encoding_table(tree)
 
-        # Serialize the Huffman tree
-        serialized_tree = pickle.dumps(tree)
+    # Serialize the Huffman tree
+    serialized_tree = serialize_huffman_tree(pairs)
 
-        # Generate bit string
-        bit_string = ''
-        with open(input_file, 'r') as file:
-            for line in file:
-                for char in line:
-                    bit_string += encoding_table[char]
+    # Generate bit string
+    bit_string = ''
+    with open(f"{folder_path}/{input_file}", 'r') as file:
+        for line in file:
+            for char in line:
+                bit_string += encoding_table[char]
 
-        # Convert to byte array
-        byte_array = bytearray()
-        for i in range(0, len(bit_string), 8):
-            byte_chunk = bit_string[i:i + 8]
-            if len(byte_chunk) < 8:
-                byte_chunk = byte_chunk.ljust(8, '0')  # Pad the last byte if necessary
-            byte_array.append(int(byte_chunk, 2))
+    # Convert to byte array
+    byte_array = bytearray()
+    for i in range(0, len(bit_string), 8):
+        byte_chunk = bit_string[i:i + 8]
+        if len(byte_chunk) < 8:
+            byte_chunk = byte_chunk.ljust(8, '0')  # Pad the last byte if necessary
+        byte_array.append(int(byte_chunk, 2))
 
-        # Write the serialized tree and encoded data to file
-        with open(output_file, 'wb') as file:
-            file.write(len(serialized_tree).to_bytes(4, 'big'))  # Write the length of the serialized tree
-            file.write(serialized_tree)  # Write the serialized tree
-            file.write(byte_array)  # Write the encoded data
+    # Write the serialized tree and encoded data to file
+    with open(f"{folder_path}/{input_file}.bin", 'wb') as file:
+        file.write(serialized_tree)  # Write the serialized tree
+        file.write(byte_array)  # Write the encoded data
 
-        print(f"Encoding complete. Encoded file saved as '{output_file}'.")
-        total_time = time.time() - start_time
-        return total_time
-
-
-    except Exception as e:
-        print(f"An error occurred during encoding: {e}")
-        return 0
+    print(f"Encoding complete. Encoded file saved as '{input_file}.bin'.")
+    total_time = time.time() - start_time
+    return total_time
 
 
-def decode(encoded_file):
+    # except Exception as e:
+    #     print(f"An error occurred during encoding: {e}")
+    #     return 0
+
+
+def decode(folder_path, encoded_file):
     output_file = f"{os.path.splitext(encoded_file)[0]}.decoded"
     start_time = time.time()
-    try:
-        # Read the serialized tree and encoded data from the file
-        with open(encoded_file, 'rb') as file:
-            tree_size = int.from_bytes(file.read(4), 'big')  # Read the length of the serialized tree
-            serialized_tree = file.read(tree_size)  # Read the serialized tree
-            byte_array = file.read()  # Read the rest of the file (encoded data)
 
-        # Deserialize the Huffman tree
-        tree = pickle.loads(serialized_tree)
+    # Read the serialized tree and encoded data from the file
+    with open(f"{folder_path}{encoded_file}.bin", 'rb') as file:
+        encoded_data = file.read()  # Read the rest of the file (encoded data)
 
-        # Convert byte array to bit string
-        bit_string = ''
-        for byte in byte_array:
-            bit_string += f'{byte:08b}'
+    pairs = list()
+    # Deserialize the Huffman tree
+    while encoded_data[0:4] != b'\x00\x00\x00\x00':
+        char, freq = struct.unpack('<II', encoded_data[:8])
+        encoded_data = encoded_data[8:]
+        pairs.append((chr(char), freq))
 
-        # Decode bit string using Huffman tree
-        node = tree
-        decoded_output = ''
-        for bit in bit_string:
-            if bit == '0':
-                node = node.left
-            else:
-                node = node.right
-            
-            if node.char is not None:
-                decoded_output += node.char
-                node = tree
+    # Convert byte array to bit string
+    bit_string = ''
+    for byte in encoded_data:
+        bit_string += f'{byte:08b}'
 
-        with open(output_file, 'w') as file:
-            file.write(decoded_output)
+    # Decode bit string using Huffman tree
+    node = create_huffman_tree(pairs)
+    decoded_output = ''
+    for bit in bit_string:
+        if bit == '0':
+            node = node.left
+        else:
+            node = node.right
+        
+        if node.char is not None:
+            decoded_output += node.char
+            node = tree
 
-        print(f"Decoding complete. Decoded file saved as '{output_file}'.")
-        total_time = time.time() - start_time
-        return total_time
+    with open(f"{folder_path}{output_file}.decoded", 'w') as file:
+        file.write(decoded_output)
 
-    except Exception as e:
-        print(f"An error occurred during decoding: {e}")
-        return 0
+    # print(f"Decoding complete. Decoded file saved as '{output_file}'.")
+    total_time = time.time() - start_time
+    return total_time
+
+    # except Exception as e:
+    #     print(f"An error occurred during decoding: {e}")
+    #     return 0
 
 
-def huffman_encode(input_file):
-    input_file_base = os.path.splitext(input_file)[0]
-    compression_time = encode(f"{input_file_base}.txt")
-    decompression_time = decode(f"{input_file_base}.bin")
-    detailed_report("Huffman Encode", input_file_base, input_file_base, compression_time, decompression_time)
+def huffman_encode(folder_path, input_file):
+    compression_time = encode(folder_path, input_file)
+    decompression_time = decode(folder_path, input_file)
+    # detailed_report("Huffman Encode", input_file_base, input_file_base, compression_time, 0)
 

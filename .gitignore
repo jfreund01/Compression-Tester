@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
+# Encoded/Decoded files
+*.encoded
+*.decoded
+*.bin
+*.txt
+/.vscode
+
 # Distribution / packaging
 .Python
 build/
