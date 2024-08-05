@@ -7,8 +7,8 @@ __pycache__/
 *.so
 
 # Encoded/Decoded files
-*.encoded
-*.decoded
+*.enc*
+*.dec*
 *.bin
 *.txt
 /.vscode
