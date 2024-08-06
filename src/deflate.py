@@ -19,9 +19,9 @@ def timing(f):
 
 class DeflateCompressor:
 
-    def __init__(self, search_buffer_size, lookup_buffer_size):
+    def __init__(self, search_buffer_size, lookup_buffer_size, block_number):
         self.huffman = huffman.HuffmanCompressor()
-        self.lz_77 = lz_77.LZ77Compressor(search_buffer_size, lookup_buffer_size)
+        self.lz_77 = lz_77.LZ77Compressor(search_buffer_size, lookup_buffer_size, block_number)
     
 
 
@@ -41,7 +41,8 @@ class DeflateCompressor:
 
     def test(self, folder_path, input_file):
         comp_time = self.compress(folder_path, input_file)
-        decomp_time = self.decompress(folder_path, input_file)
+        decomp_time = 0
+        # decomp_time = self.decompress(folder_path, input_file)
         detailed_report("Deflate", f"{folder_path}{input_file}", comp_time, decomp_time, output_file=f"{folder_path}{input_file}.enc.enc")    
         for hgx in glob.glob(f"{folder_path}{input_file}.*"):
             os.remove(hgx)

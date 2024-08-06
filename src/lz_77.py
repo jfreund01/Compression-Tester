@@ -4,6 +4,7 @@ import struct
 from collections import deque
 from functools import wraps
 from time import time
+import concurrent.futures
 
 # Data will be compressed to this format:
 #     4 bytes of "\x00\x00\x00\x00 to seperate blocks for each parallel
@@ -39,13 +40,12 @@ class LZ77Compressor:
         self.search_buffer_size = search_buffer_size
         self.lookup_buffer_size = lookup_buffer_size
         self.block_number = block_number
-        self.dictionary = {}
     
     def hash_substring(self, substring: str) -> int:
         return hash(substring)
     
     
-    def compress_block(self, folder_path: str, input_file: str, data: str) -> bytearray:
+    def compress_block(self, index: int, data: str) -> bytearray:
         # output_string = []
         # temp_dict = {}
         byte_data = bytearray()
@@ -53,6 +53,7 @@ class LZ77Compressor:
             byte_data.extend(self.PARALLEL_SEPERATOR_BYTES)
         i = 0
         l = len(data)
+        dictionary = {}
         while i < l:
             # print(i / l * 100)
             longest_location = 0
@@ -60,14 +61,14 @@ class LZ77Compressor:
             current_char = data[i]
             current_char_hash = self.hash_substring(data[i])
             # If the hash is found in the dictionary, we need to deal with out of bounds before
-            if self.dictionary.get(current_char_hash):
-                for pos in self.dictionary[current_char_hash]:
+            if dictionary.get(current_char_hash):
+                for pos in dictionary[current_char_hash]:
                     # make sure to remove locations that are out of bounds
                     if pos < i - self.search_buffer_size:
-                        self.dictionary[current_char_hash].remove(pos)
+                        dictionary[current_char_hash].remove(pos)
                         # temp_dict[current_char].remove(pos)
-                        if self.dictionary[current_char_hash] == []:
-                            del self.dictionary[current_char_hash]
+                        if dictionary[current_char_hash] == []:
+                            del dictionary[current_char_hash]
                             # del temp_dict[current_char]
                     # if the location is within bounds, we need to find the longest prefix
                     else:
@@ -93,21 +94,21 @@ class LZ77Compressor:
                 for k in range((i - longest_length - 1), i):
                     current_char = data[k]
                     current_char_hash = self.hash_substring(current_char)
-                    if self.dictionary.get(current_char_hash):
-                        self.dictionary[current_char_hash].append(k)
+                    if dictionary.get(current_char_hash):
+                        dictionary[current_char_hash].append(k)
                         # temp_dict[current_char].append(k)
                     else:
-                        self.dictionary[current_char_hash] = [k]
+                        dictionary[current_char_hash] = [k]
                         # temp_dict[current_char] = [k]
             # If we dont find the hash in the dictionary, we need to add it and return the 0,0,char tuple
             else:
                 byte_data.extend(pack_tuple((0, 0, ord(current_char[0]))))
                 # output_string.append((0, 0, current_char[0]))
-                self.dictionary[current_char_hash] = [i]
+                dictionary[current_char_hash] = [i]
                 # temp_dict[current_char] = [i]
                 i += 1
             # print(# output_string)
-        return byte_data
+        return (index, byte_data)
     
     @timing
     def compress(self, folder_path, input_file):
@@ -116,11 +117,19 @@ class LZ77Compressor:
             data = file.read()
             for i in range(0, self.block_number):
                 data_list.append(data[i * len(data) // self.block_number:(i + 1) * len(data) // self.block_number])
-                print (data_list[i])
+                # print (data_list[i])
+                
         compressed_data = bytearray()
-        for data in data_list:
-            comp = self.compress_block(folder_path, input_file, data)
-            compressed_data.extend(comp)
+        indexed_blocks = [(i, block) for i, block in enumerate(data_list)]
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = list(executor.map(self.compress_block, \
+                [i for i, block in indexed_blocks], \
+                [block for i, block in indexed_blocks]))
+        
+        results.sort(key=lambda x: x[0])
+        for result in results:
+            compressed_data.extend(result[1])
+            
         compressed_data = struct.pack('>I', self.block_number) + compressed_data
         with open(f"{folder_path}{input_file}.enc", "wb") as file:
             file.write(compressed_data)
