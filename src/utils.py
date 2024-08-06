@@ -1,7 +1,10 @@
 import os
-def detailed_report(encoding_name, input_file, compression_time, decompression_time):
+def detailed_report(encoding_name, input_file, compression_time, decompression_time, output_file=None):
     input_size = os.path.getsize(f"{input_file}")
-    compressed_size = os.path.getsize(f"{input_file}.enc")
+    if output_file is not None:
+        compressed_size = os.path.getsize(f"{output_file}")
+    else:
+        compressed_size = os.path.getsize(f"{input_file}.enc")
     compression_ratio = float(input_size/compressed_size)
     a = f"""
 ----------------------------------------

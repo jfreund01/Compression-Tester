@@ -102,7 +102,7 @@ class HuffmanCompressor:
         serialized_end = b'\x00\x00\x00\x00'
         serialzed_tree = bytearray()
         for pair in pairs:
-            serialzed_tree.extend(struct.pack('<II', ord(pair[0]), pair[1]))
+            serialzed_tree.extend(struct.pack('<BI', ord(pair[0]), pair[1]))
         serialzed_tree.extend(serialized_end)
         return serialzed_tree
 
@@ -162,7 +162,7 @@ class HuffmanCompressor:
             file.write(serialized_tree)  # Write the serialized tree
             file.write(byte_array)  # Write the compressed data
 
-        print(f"Encoding complete. Compresssd file saved as '{input_file}.enc'.")
+        # print(f"Encoding complete. Compresssd file saved as '{input_file}.enc'.")
         total_time = time.time() - start_time
         return total_time
 
@@ -228,7 +228,7 @@ class HuffmanCompressor:
         pairs = list()
         # Deserialize the Huffman tree
         while enc_data[0:4] != b'\x00\x00\x00\x00':
-            char, freq = struct.unpack('<II', enc_data[:8])
+            char, freq = struct.unpack('<BI', enc_data[:5])
             enc_data = enc_data[8:]
             pairs.append((chr(char), freq))
 
