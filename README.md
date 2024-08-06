@@ -2,7 +2,10 @@
 
 ## What is this project?
 
-I am building this project because I want to know more about the process of compressing data, different compression techniques and algorithms, and create an online tool to test different compression algorithms and see their statistics.
+This project is an exploration into the way that modern file compressors work.  Currently, it supports the following compression algorithms:
+Huffman
+LZ-77
+DEFLATE
 
 ## How do I use this project
 
