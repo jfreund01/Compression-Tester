@@ -12,7 +12,8 @@ if __name__ == "__main__":
     
     # huffman_compressor = huffman.HuffmanCompressor()
     # huffman_compressor.test(TEXT_PATH, input_file)
-    # lz_77_compressor = lz_77.LZ77Compressor(32768, 20)
+    lz_77_compressor = lz_77.LZ77Compressor(8, 4, 3)
     # lz_77_compressor.test(TEXT_PATH, input_file)
-    deflate_compressor = deflate.DeflateCompressor(65536, 256)
-    deflate_compressor.test(TEXT_PATH, input_file)
+    deflate_compressor = deflate.DeflateCompressor(8, 4)
+    # deflate_compressor.test(TEXT_PATH, input_file)
+    lz_77_compressor.compress(TEXT_PATH, input_file)
