@@ -278,10 +278,9 @@ class HuffmanCompressor:
         # Create Huffman tree from pairs
         tree = self.create_huffman_tree(pairs)
 
-        # Remove padding bits from the last byte
-        if padding_length > 0:
-            enc_data = enc_data[:-1] + bytes([enc_data[-1] >> padding_length << padding_length])
-
+        last_byte = enc_data[-1]
+        enc_data = enc_data[:-1]  # Remove the last byte
+        
         # Decompress the data
         node = tree
         dec_output = bytearray()
@@ -292,6 +291,13 @@ class HuffmanCompressor:
                 if node.char is not None:
                     dec_output.append(node.char)
                     node = tree
+        
+        for bit_pos in range(8 - padding_length):
+            bit = (last_byte >> (7 - bit_pos)) & 1
+            node = node.left if bit == 0 else node.right
+            if node.char is not None:
+                dec_output.append(node.char)
+                node = tree
 
         # Write the decompressed data to a file
         with open(os.path.join(folder_path, f"{enc_file}.dec"), 'wb') as file:
