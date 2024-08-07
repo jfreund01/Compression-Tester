@@ -86,8 +86,6 @@ class HuffmanCompressor:
             hq.heappush(heap, internal_node)
             # for node in node_stack:
             #     print(f"{repr(node.char)} appears {node.freq} time(s)")
-            # print()
-            # print()
         root = hq.heappop(heap)
         return root
 
@@ -149,12 +147,10 @@ class HuffmanCompressor:
         with open(f"{folder_path}/{input_file}", 'rb') as file:
             pairs = list(Counter(file.read()).items())
         pairs.sort(key=lambda x: x[1]) 
-        print(pairs)
 
         # Create tree and encoding table
         tree = self.create_huffman_tree(pairs)
         encoding_table = self.create_encoding_table(tree)
-        # print_huffman_tree(tree)
         # Serialize the Huffman tree
         serialized_tree = self. serialize_huffman_tree(pairs)
 
@@ -184,7 +180,6 @@ class HuffmanCompressor:
             file.write(serialized_tree)  # Write the serialized tree
             file.write(byte_array)  # Write the compressed data
 
-        # print(f"Encoding complete. Compresssd file saved as '{input_file}.enc'.")
         total_time = time.time() - start_time
         return total_time
 
@@ -221,7 +216,6 @@ class HuffmanCompressor:
             file.write(serialized_tree)  # Write the serialized tree
             file.write(byte_array)  # Write the enc data
 
-        # print(f"Encoding complete. compressd file saved as '{input_file}.enc'.")
         total_time = time.time() - start_time
         return total_time
 
@@ -261,14 +255,17 @@ class HuffmanCompressor:
 
     #     with open(f"{folder_path}{enc_file}.dec", 'w') as file:
     #         file.write(''.join(dec_output))
-
+    
     def decompress(self, folder_path, enc_file):
         # Read the serialized tree and enc data from the file
         with open(os.path.join(folder_path, f"{enc_file}.enc"), 'rb') as file:
             enc_data = file.read()  # Read the rest of the file (enc data)
 
-        pad_amount = enc_data[0]
-        enc_data = enc_data[1:]  # Skip the padding byte
+
+        # Read padding length
+        padding_length = enc_data[0]
+        enc_data = enc_data[1:]
+
         pairs = list()
         # Deserialize the Huffman tree
         while enc_data[:4] != b'\x00\x00\x00\x00':
@@ -277,33 +274,30 @@ class HuffmanCompressor:
             pairs.append((char, freq))
 
         enc_data = enc_data[4:]  # Skip the serialized tree end marker
-        print(enc_data)
+
         # Create Huffman tree from pairs
         tree = self.create_huffman_tree(pairs)
-        # Decompress the data
-        dec_output = bytearray()
-        bit_pos = 1
 
-        encoding_table = self.create_encoding_table(tree)
-        encoding_table = dict((v,k) for k,v in encoding_table.items())
-        print(encoding_table)
-        
-        bit_string = list(''.join(f'{byte:08b}' for byte in enc_data))
-        bit_string = bit_string[:pad_amount * -1]
-        print(bit_string)
-        while bit_pos <= len(bit_string):
-            bits = ''.join(bit_string[:bit_pos])
-            if bits in encoding_table:
-                dec_output.append(encoding_table[bits])
-                bit_string = bit_string[bit_pos:]
-                bit_pos = 1
-            else:
-                bit_pos += 1
+        # Remove padding bits from the last byte
+        if padding_length > 0:
+            enc_data = enc_data[:-1] + bytes([enc_data[-1] >> padding_length << padding_length])
+
+        # Decompress the data
+        node = tree
+        dec_output = bytearray()
+        for byte in enc_data:
+            for bit_pos in range(8):
+                bit = (byte >> (7 - bit_pos)) & 1
+                node = node.left if bit == 0 else node.right
+                if node.char is not None:
+                    dec_output.append(node.char)
+                    node = tree
 
         # Write the decompressed data to a file
         with open(os.path.join(folder_path, f"{enc_file}.dec"), 'wb') as file:
             file.write(dec_output)
 
+        return dec_output
 
     def test(self, folder_path, input_file):
         # if input_file.endswith('.enc'):

@@ -46,9 +46,6 @@ class LZ77Compressor:
     
     
     def compress_block(self, index: int, data: str) -> (int, bytearray):
-        # output_string = []
-        # temp_dict = {}
-        print(data)
         byte_data = bytearray()
         for i in range(0, self.PARALLEL_SEPERATOR_AMOUNT):
             byte_data.extend(self.PARALLEL_SEPERATOR_BYTES)
@@ -56,7 +53,6 @@ class LZ77Compressor:
         l = len(data)
         dictionary = {}
         while i < l:
-            # print(i / l * 100)
             longest_location = 0
             longest_length = 0
             current_char = data[i]
@@ -67,7 +63,6 @@ class LZ77Compressor:
                     # make sure to remove locations that are out of bounds
                     if pos < i - self.search_buffer_size:
                         dictionary[current_char_hash].remove(pos)
-                        # temp_dict[current_char].remove(pos)
                         if dictionary[current_char_hash] == []:
                             del dictionary[current_char_hash]
                             # del temp_dict[current_char]
@@ -86,10 +81,8 @@ class LZ77Compressor:
                 i += longest_length
                 if i == l:
                     byte_data.extend(pack_tuple((longest_location, longest_length, 0)))
-                    # output_string.append((longest_location, longest_length, ''))
                 else:
                     byte_data.extend(pack_tuple((longest_location, longest_length, ord(data[i]))))
-                    # output_string.append((longest_location, longest_length, data[i]))
                     i += 1
                 # Add the characters in the substring to the dictionary
                 for k in range((i - longest_length - 1), i):
@@ -97,18 +90,13 @@ class LZ77Compressor:
                     current_char_hash = self.hash_substring(current_char)
                     if dictionary.get(current_char_hash):
                         dictionary[current_char_hash].append(k)
-                        # temp_dict[current_char].append(k)
                     else:
                         dictionary[current_char_hash] = [k]
-                        # temp_dict[current_char] = [k]
             # If we dont find the hash in the dictionary, we need to add it and return the 0,0,char tuple
             else:
                 byte_data.extend(pack_tuple((0, 0, ord(current_char[0]))))
-                # output_string.append((0, 0, current_char[0]))
                 dictionary[current_char_hash] = [i]
-                # temp_dict[current_char] = [i]
                 i += 1
-            # print(# output_string)
         return (index, byte_data)
     
     @timing
@@ -118,7 +106,6 @@ class LZ77Compressor:
             data = file.read()
             for i in range(0, self.block_number):
                 data_list.append(data[i * len(data) // self.block_number:(i + 1) * len(data) // self.block_number])
-                # print (data_list[i])
                 
         compressed_data = bytearray()
         indexed_blocks = [(i, block) for i, block in enumerate(data_list)]
@@ -175,7 +162,6 @@ class LZ77Compressor:
         for i in range(0, block_number):
             block_size = len(compressed_string) // block_number
             indexed_blocks[i] = (i, compressed_string[i * block_size:(i + 1) * block_size])        
-        print(indexed_blocks.items())
         
         for i in range (0, block_number):
             # remove the first 4 bytes to get rid of seperator
@@ -213,7 +199,6 @@ class LZ77Compressor:
 #                     j = prefix_table[j - 1]
 
 #         prefix_table[-1] = prefix_table[j] + 1
-#         # print(prefix_table)
 #         return(prefix_table)
 
 #     # KMP algorithm to find longest prefix
@@ -243,7 +228,6 @@ class LZ77Compressor:
 #     def compress(self, input_file: str) -> str:
 #         input_string = self.create_input_string(input_file)
 #         full_len = len(input_string)
-#         # output_string = []
 #         output_buffer = bytearray()
 #         search_buffer = deque(maxlen=SEARCH_BUFFER_SIZE)
 #         look_ahead_buffer = input_string[:LOOK_AHEAD_BUFFER_SIZE]
@@ -253,7 +237,6 @@ class LZ77Compressor:
 #             print(((full_len - input_pos) / full_len) * 100)
 #             if look_ahead_buffer[0] not in search_buffer:
 #                 byte_string = pack_tuple((0, 0, ord(look_ahead_buffer[0])))
-#                 # # output_string.append((0, 0, look_ahead_buffer[0]))
 #                 output_buffer.extend(byte_string)
 #                 search_buffer.append(look_ahead_buffer[0])
 #                 input_pos += 1
@@ -261,7 +244,6 @@ class LZ77Compressor:
 #             else:
 #                 prefix_location, prefix_length, next_char = self.find_longest_prefix_KMP(search_buffer, look_ahead_buffer)
 #                 byte_string = pack_tuple((prefix_location, prefix_length, ord(next_char)))
-#                 # # output_string.append((prefix_location, prefix_length, next_char))
 #                 output_buffer.extend(byte_string)
 #                 move_len = prefix_length + 1
 #                 search_buffer.extend(look_ahead_buffer[:move_len])
@@ -281,7 +263,6 @@ class LZ77Compressor:
 #                 if not chunk:
 #                     break
 #                 distance, length, next_char = struct.unpack('HBB', chunk)
-#                 # print (distance, length, chr(next_char))
 #                 if next_char == self.SPECIAL_BYTE:
 #                     # Special case: entire remaining string is a match
 #                     match_start = len(decompressed_data) - distance
