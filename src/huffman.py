@@ -3,7 +3,31 @@ import pickle
 import os
 import time
 import struct
+from collections import Counter
+from functools import wraps
 from utils import detailed_report
+
+
+import cProfile
+import pstats
+
+def timing_and_profiling(f):
+    @wraps(f)
+    def wrap(*args, **kw):
+        profiler = cProfile.Profile()
+        profiler.enable()
+        ts = time.time()
+        result = f(*args, **kw)
+        te = time.time()
+        profiler.disable()
+        execution_time = te - ts
+        stats = pstats.Stats(profiler)
+        stats.strip_dirs()
+        stats.sort_stats("cumulative")
+        stats.print_stats()
+        return execution_time
+    return wrap
+
 
 class huffman_node:
     def __init__(self, char, freq, left=None, right=None):
@@ -102,7 +126,7 @@ class HuffmanCompressor:
         serialized_end = b'\x00\x00\x00\x00'
         serialzed_tree = bytearray()
         for pair in pairs:
-            serialzed_tree.extend(struct.pack('<BI', ord(pair[0]), pair[1]))
+            serialzed_tree.extend(struct.pack('<BI', pair[0], pair[1]))
         serialzed_tree.extend(serialized_end)
         return serialzed_tree
 
@@ -117,21 +141,14 @@ class HuffmanCompressor:
         right, next_index = self.deserialize_huffman_tree(data, next_index)
         return huffman_node(char=None, freq=0, left=left, right=right), next_index
 
+    # @timing_and_profiling
     def compress_bin(self, folder_path, input_file):
         start_time = time.time()
         # Count byte frequencies
         d = dict()
         with open(f"{folder_path}/{input_file}", 'rb') as file:
-            byte = file.read(1)
-            while byte:
-                if byte not in d:
-                    d[byte] = 1
-                else:
-                    d[byte] += 1
-                byte = file.read(1)
-        
-        # Sort by frequency
-        pairs = list(d.items())
+            pairs = list(Counter(file.read()).items())
+        print(pairs)
         pairs.sort(key=lambda x: x[1]) 
 
         # Create tree and encoding table
@@ -142,13 +159,13 @@ class HuffmanCompressor:
         serialized_tree = self. serialize_huffman_tree(pairs)
 
         # Generate bit string
-        bit_string = ''
+        bit_list = []
         with open(f"{folder_path}/{input_file}", 'rb') as file:
-            byte = file.read(1)
-            while byte:
-                bit_string += encoding_table[byte]
-                byte = file.read(1)
+            while (chunk := file.read(4096)):  # Read in chunks
+                for byte in chunk:
+                    bit_list.append(encoding_table[byte])
 
+        bit_string = ''.join(bit_list)
         # Convert to byte array
         byte_array = bytearray()
         for i in range(0, len(bit_string), 8):
@@ -169,23 +186,14 @@ class HuffmanCompressor:
     def compress(self,folder_path, input_file):
         start_time = time.time()
         # Count character frequencies
-        d = dict()
         with open(f"{folder_path}{input_file}", 'r') as file:
-            for line in file:
-                for character in line:
-                    if character not in d:
-                        d[character] = 1
-                    else:
-                        d[character] += 1
-        # Sort by frequency
-        pairs = list(d.items())
+            pairs = list(Counter(file.read()).items())
         pairs.sort(key=lambda x: x[1]) 
 
         # Create tree and encoding table
         tree = self.create_huffman_tree(pairs)
         encoding_table = self.create_encoding_table(tree)
 
-        # Serialize the Huffman tree
         serialized_tree = self.serialize_huffman_tree(pairs)
 
         # Generate bit string
