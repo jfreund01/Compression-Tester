@@ -10,7 +10,7 @@ __pycache__/
 *.enc*
 *.dec*
 *.bin
-*.txt
+*.txt*
 /.vscode
 
 # Distribution / packaging

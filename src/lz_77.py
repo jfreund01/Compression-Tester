@@ -118,7 +118,7 @@ class LZ77Compressor:
         for result in results:
             compressed_data.extend(result[1])
             
-        compressed_data = struct.pack('<I', self.block_number) + compressed_data
+        compressed_data = struct.pack('>I', self.block_number) + compressed_data
         with open(f"{folder_path}{input_file}.enc", "wb") as file:
             file.write(compressed_data)
     
@@ -151,24 +151,31 @@ class LZ77Compressor:
                 
     def decompress(self, folder_path, input_file):
         
-        decompressed_data = []
+        data_list = []
 
         with open(f"{folder_path}{input_file}.enc", 'rb') as f:
-            compressed_string = f.read()
-            block_number = struct.unpack('>I', compressed_string[:4])[0]
-
-        compressed_string = compressed_string[4:] # remove starting byte for number of blocks
-        indexed_blocks = {}
-        for i in range(0, block_number):
-            block_size = len(compressed_string) // block_number
-            indexed_blocks[i] = (i, compressed_string[i * block_size:(i + 1) * block_size])        
+            data = f.read()
+            block_number = struct.unpack('>I', data[:4])[0]
         
-        for i in range (0, block_number):
-            # remove the first 4 bytes to get rid of seperator
-            compressed_string = compressed_string[(self.PARALLEL_SEPERATOR_AMOUNT*8):] 
-            
-        with open(f"{folder_path}{input_file}.dec", "w") as file:
-            file.write(str(decompressed_string))
+        data = data[4:]
+        block_size = len(data) // block_number
+        for i in range(0, self.block_number):
+            data_list.append(data[i * len(data) // self.block_number:(i + 1) * len(data) // self.block_number])
+
+        indexed_blocks = [(i, block) for i, block in enumerate(data_list)]
+        
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = list(executor.map(self.decompress_block, \
+                [i for i, block in indexed_blocks], \
+                [block for i, block in indexed_blocks]))
+
+        decompressed_data = []
+        # print(results)
+        for i in range(0, block_number):
+            decompressed_data.extend(results[i][1])
+        
+        with open(f"{folder_path}{input_file}.2", "w") as file:
+            file.write(''.join(decompressed_data))
 
     def test(self, folder_path, input_file):
         comp_time = self.compress(folder_path, input_file)

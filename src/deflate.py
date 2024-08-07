@@ -35,7 +35,7 @@ class DeflateCompressor:
     @timing
     def decompress(self, folder_path, input_file):
         huffman_decomp = self.huffman.decompress(folder_path, f"{input_file}.enc")
-        # lz_77_decomp = self.lz_77.decompress(folder_path, f"{input_file}")
+        lz_77_decomp = self.lz_77.decompress(folder_path, f"{input_file}")
         # decomp_time = lz_77_decomp + huffman_decomp
         # return decomp_time
 
