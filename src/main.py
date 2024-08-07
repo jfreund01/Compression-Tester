@@ -16,6 +16,6 @@ if __name__ == "__main__":
     # lz_77_compressor = lz_77.LZ77Compressor(65536, 20, 1)
     # lz_77_compressor.compress(TEXT_PATH, input_file)
     # lz_77_compressor.test(TEXT_PATH, input_file)
-    deflate_compressor = deflate.DeflateCompressor(8192, 20, 30)
+    deflate_compressor = deflate.DeflateCompressor(8192, 20, 1)
     deflate_compressor.test(TEXT_PATH, input_file)
     

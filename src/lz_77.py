@@ -45,9 +45,10 @@ class LZ77Compressor:
         return hash(substring)
     
     
-    def compress_block(self, index: int, data: str) -> bytearray:
+    def compress_block(self, index: int, data: str) -> (int, bytearray):
         # output_string = []
         # temp_dict = {}
+        print(data)
         byte_data = bytearray()
         for i in range(0, self.PARALLEL_SEPERATOR_AMOUNT):
             byte_data.extend(self.PARALLEL_SEPERATOR_BYTES)
@@ -130,10 +131,64 @@ class LZ77Compressor:
         for result in results:
             compressed_data.extend(result[1])
             
-        compressed_data = struct.pack('>I', self.block_number) + compressed_data
+        compressed_data = struct.pack('<I', self.block_number) + compressed_data
         with open(f"{folder_path}{input_file}.enc", "wb") as file:
             file.write(compressed_data)
+    
+    
+    def decompress_block (self, index: int, data: bytearray) -> tuple[int, str]:
+        decompressed_string = []
+        while True:
+            chunk = data[:struct.calcsize('<HBB')]
+            data = data[struct.calcsize('<HBB'):]
+            if not chunk:
+                break
+            distance, length, next_char = struct.unpack('<HBB', chunk)
+            if next_char == self.SPECIAL_BYTE:
+                # Special case: entire remaining string is a match
+                match_start = len(decompressed_string) - distance
+                match_string = decompressed_string[match_start:match_start + length]
+                decompressed_string.extend(match_string)
+            elif distance > 0 and length > 0:
+                # Match found
+                match_start = len(decompressed_string) - distance
+                for i in range(length):
+                    decompressed_string.append(decompressed_string[match_start + i])
+                if next_char != 0:
+                    decompressed_string.append(chr(next_char))
+            else:
+                # Literal character
+                decompressed_string.append(chr(next_char))
+
+        return index, decompressed_string
                 
+    def decompress(self, folder_path, input_file):
+        
+        decompressed_data = []
+
+        with open(f"{folder_path}{input_file}.enc", 'rb') as f:
+            compressed_string = f.read()
+            block_number = struct.unpack('>I', compressed_string[:4])[0]
+
+        compressed_string = compressed_string[4:] # remove starting byte for number of blocks
+        indexed_blocks = {}
+        for i in range(0, block_number):
+            block_size = len(compressed_string) // block_number
+            indexed_blocks[i] = (i, compressed_string[i * block_size:(i + 1) * block_size])        
+        print(indexed_blocks.items())
+        
+        for i in range (0, block_number):
+            # remove the first 4 bytes to get rid of seperator
+            compressed_string = compressed_string[(self.PARALLEL_SEPERATOR_AMOUNT*8):] 
+            
+        with open(f"{folder_path}{input_file}.dec", "w") as file:
+            file.write(str(decompressed_string))
+
+    def test(self, folder_path, input_file):
+        comp_time = self.compress(folder_path, input_file)
+        decomp_time = self.decompress(folder_path, input_file)
+        detailed_report("LZ77", f"{folder_path}{input_file}", comp_time, decomp_time)                
+
 # class KMP_LZ77Compressor:
 
 #     def __init__(self, search_buffer_size, lookup_buffer_size):
