@@ -45,7 +45,7 @@ class LZ77Compressor:
         return hash(substring)
     
     
-    def compress_block(self, index: int, data: str) -> (int, bytearray):
+    def compress_block(self, index: int, data: str) -> tuple[int, bytearray]:
         byte_data = bytearray()
         for i in range(0, self.PARALLEL_SEPERATOR_AMOUNT):
             byte_data.extend(self.PARALLEL_SEPERATOR_BYTES)
