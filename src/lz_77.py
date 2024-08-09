@@ -159,9 +159,9 @@ class LZ77Compressor:
         
         data = data[4:]
         block_size = len(data) // block_number
-        for i in range(0, self.block_number):
-            data_list.append(data[i * len(data) // self.block_number:(i + 1) * len(data) // self.block_number])
-
+        # split data into blocks using x00x00x00x00
+        data_list = data.split(self.PARALLEL_SEPERATOR_BYTES * self.PARALLEL_SEPERATOR_AMOUNT)
+        
         indexed_blocks = [(i, block) for i, block in enumerate(data_list)]
         
         with concurrent.futures.ProcessPoolExecutor() as executor:
